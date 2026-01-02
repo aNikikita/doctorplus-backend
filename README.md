@@ -288,6 +288,12 @@ Unsafe requests (self-harm, violence, etc.) are blocked with:
 
 ## 📖 Frontend Integration
 
+**⚠️ ВАЖНО**: Web и Flutter приложения должны обращаться к `{RENDER_URL}/v1/doctorplus`, **НЕ** к `/api/*`
+
+Этот backend **НЕ использует** префикс `/api`. Все маршруты начинаются с корня:
+- ✅ `https://your-backend.onrender.com/v1/doctorplus`
+- ❌ `https://your-backend.onrender.com/api/doctorplus` (вернёт 404)
+
 ### Next.js (web_v2)
 
 ```typescript

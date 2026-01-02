@@ -112,6 +112,24 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, generic_exception_handler)
 
+# Custom 404 handler for clear error messages
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: HTTPException):
+    """Custom 404 handler with helpful message"""
+    path = request.url.path
+    message = f"Endpoint not found: {path}"
+    
+    # Special hint for common mistakes
+    if "/api/" in path:
+        message += " | Hint: This service does not use /api prefix. Use /v1/doctorplus instead of /api/doctorplus"
+    
+    return create_error_response(
+        status_code=404,
+        message=message,
+        code="NOT_FOUND",
+        details={"path": path, "available_endpoints": ["/health", "/version", "/v1/doctorplus"]}
+    )
+
 # CORS middleware
 cors_origins = Config.get_cors_origins()
 app.add_middleware(
