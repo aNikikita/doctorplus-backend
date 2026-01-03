@@ -3,7 +3,7 @@
 Production-ready FastAPI backend for Doctor+ medical AI assistant (50+ audience optimized).
 
 **Version:** 2026-01-02-render-a  
-**AI Model:** Groq Llama 3.1 70B Versatile (configurable with fallback)  
+**AI Model:** Groq Llama 3.3 70B Versatile (configurable with fallback)  
 **Deployment:** Docker on Render
 
 ## ✨ Features
@@ -231,7 +231,7 @@ curl -X POST $RENDER_URL/v1/doctorplus \
 
 #### Optional
 
-- **`GROQ_MODEL`** - Primary Groq model name (default: `llama-3.1-70b-versatile`)
+- **`GROQ_MODEL`** - Primary Groq model name (default: `llama-3.3-70b-versatile`)
 - **`GROQ_FALLBACK_MODEL`** - Fallback Groq model name (default: `llama-3.1-8b-instant`)
 - **`DOCTORPLUS_RPM`** - Rate limit (default: 30 requests/minute)
 - **`DEBUG_ENDPOINTS`** - Enable `/debug/env` endpoint (default: 0)

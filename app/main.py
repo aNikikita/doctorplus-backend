@@ -327,7 +327,7 @@ async def process_doctorplus_request(
     
     # Call Groq API with timeout and fallback
     try:
-        logger.info(f"[{request_id}] Calling Groq API: model={Config.GROQ_MODEL}")
+        logger.info(f"[{request_id}] Calling Groq API: model={Config.GROQ_MODEL}, fallback_enabled=true")
         
         response = await asyncio.wait_for(
             client.chat.completions.create(
@@ -348,7 +348,7 @@ async def process_doctorplus_request(
         
         logger.info(
             f"[{request_id}] Groq success: "
-            f"model={Config.GROQ_MODEL}, tokens={usage['total_tokens']}"
+            f"model={Config.GROQ_MODEL}, tokens={usage['total_tokens']}, fallback_used=false"
         )
         
         return DoctorPlusResponse(
@@ -368,12 +368,13 @@ async def process_doctorplus_request(
         error_msg = str(e)
         logger.error(f"[{request_id}] Groq API error: {error_msg}")
         
-        # Check if it's a model_not_found error
+        # Check if it's a model_not_found or model_decommissioned error
         if ("model_not_found" in error_msg.lower() or 
+            "model_decommissioned" in error_msg.lower() or
             "does not exist or you do not have access" in error_msg.lower() or
             "model `.*` does not exist" in error_msg.lower()):
             
-            logger.warning(f"[{request_id}] Primary model failed, trying fallback: {Config.GROQ_FALLBACK_MODEL}")
+            logger.warning(f"[{request_id}] Primary model failed ({Config.GROQ_MODEL}), trying fallback: {Config.GROQ_FALLBACK_MODEL}")
             
             try:
                 # Try with fallback model
@@ -396,7 +397,7 @@ async def process_doctorplus_request(
                 
                 logger.info(
                     f"[{request_id}] Groq success with fallback: "
-                    f"model={Config.GROQ_FALLBACK_MODEL}, tokens={usage['total_tokens']}"
+                    f"model={Config.GROQ_FALLBACK_MODEL}, tokens={usage['total_tokens']}, fallback_used=true"
                 )
                 
                 return DoctorPlusResponse(
