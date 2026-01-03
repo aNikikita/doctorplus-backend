@@ -209,7 +209,12 @@ async def health_legacy():
 @app.get("/version")
 async def version_legacy():
     """Legacy version information endpoint"""
-    return {"service": "doctorplus-backend", "build": Config.BUILD}
+    return {
+        "service": "doctorplus-backend", 
+        "build": Config.BUILD,
+        "groq_model": Config.GROQ_MODEL,
+        "groq_fallback_model": Config.GROQ_FALLBACK_MODEL
+    }
 
 
 # Safety filtering
@@ -320,13 +325,13 @@ async def process_doctorplus_request(
         {"role": "user", "content": request.text}
     ]
     
-    # Call Groq API with timeout
+    # Call Groq API with timeout and fallback
     try:
-        logger.info(f"[{request_id}] Calling Groq API: model=llama-3.1-405b-reasoning")
+        logger.info(f"[{request_id}] Calling Groq API: model={Config.GROQ_MODEL}")
         
         response = await asyncio.wait_for(
             client.chat.completions.create(
-                model="llama-3.1-405b-reasoning",
+                model=Config.GROQ_MODEL,
                 messages=messages,
                 temperature=0.7,
                 max_tokens=2048,
@@ -343,7 +348,7 @@ async def process_doctorplus_request(
         
         logger.info(
             f"[{request_id}] Groq success: "
-            f"model=llama-3.1-405b-reasoning, tokens={usage['total_tokens']}"
+            f"model={Config.GROQ_MODEL}, tokens={usage['total_tokens']}"
         )
         
         return DoctorPlusResponse(
@@ -363,7 +368,53 @@ async def process_doctorplus_request(
         error_msg = str(e)
         logger.error(f"[{request_id}] Groq API error: {error_msg}")
         
-        # Handle specific errors
+        # Check if it's a model_not_found error
+        if ("model_not_found" in error_msg.lower() or 
+            "does not exist or you do not have access" in error_msg.lower() or
+            "model `.*` does not exist" in error_msg.lower()):
+            
+            logger.warning(f"[{request_id}] Primary model failed, trying fallback: {Config.GROQ_FALLBACK_MODEL}")
+            
+            try:
+                # Try with fallback model
+                response = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        model=Config.GROQ_FALLBACK_MODEL,
+                        messages=messages,
+                        temperature=0.7,
+                        max_tokens=2048,
+                    ),
+                    timeout=60.0
+                )
+                
+                content = response.choices[0].message.content
+                usage = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                }
+                
+                logger.info(
+                    f"[{request_id}] Groq success with fallback: "
+                    f"model={Config.GROQ_FALLBACK_MODEL}, tokens={usage['total_tokens']}"
+                )
+                
+                return DoctorPlusResponse(
+                    answer_md=content,
+                    usage=usage,
+                    build=Config.BUILD
+                )
+                
+            except Exception as fallback_error:
+                fallback_error_msg = str(fallback_error)
+                logger.error(f"[{request_id}] Fallback model also failed: {fallback_error_msg}")
+                
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"AI service error (fallback failed): {fallback_error_msg}"
+                )
+        
+        # Handle other specific errors
         if "401" in error_msg or "unauthorized" in error_msg.lower():
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -448,7 +499,9 @@ async def v1_version():
         "service": "doctorplus-backend",
         "build": Config.BUILD,
         "api_version": "v1",
-        "environment": Config.ENVIRONMENT.value
+        "environment": Config.ENVIRONMENT.value,
+        "groq_model": Config.GROQ_MODEL,
+        "groq_fallback_model": Config.GROQ_FALLBACK_MODEL
     }
 
 
